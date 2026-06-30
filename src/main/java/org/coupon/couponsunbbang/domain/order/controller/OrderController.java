@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderDeleteResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderDetailResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.service.OrderService;
 import org.coupon.couponsunbbang.global.common.ApiResponse;
@@ -18,25 +21,27 @@ public class OrderController {
 	private final OrderService orderService;
 
 	@GetMapping
-	public ResponseEntity<ApiResponse<?>> getOrders(
+	public ResponseEntity<ApiResponse<OrderListResponse>> getOrders(
 			@RequestParam Long userId, // 임시
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size
 	) {
+		OrderListResponse response = orderService.getOrders(userId, page, size);
 		return ResponseEntity
 				       .status(HttpStatus.OK)
-				       .body(ApiResponse.success(null));
+				       .body(ApiResponse.success(response));
 	}
 
 
 	@GetMapping("/{orderId}")
-	public ResponseEntity<ApiResponse<?>> getOrderDetailById(
+	public ResponseEntity<ApiResponse<OrderDetailResponse>> getOrderDetailById(
 			@RequestParam Long userId, // 임시
 			@PathVariable Long orderId
 	) {
+		OrderDetailResponse response = orderService.getOrderDetail(userId, orderId);
 		return ResponseEntity
 				       .status(HttpStatus.OK)
-				       .body(ApiResponse.success(null));
+				       .body(ApiResponse.success(response));
 	}
 
 
@@ -65,12 +70,13 @@ public class OrderController {
 
 
 	@DeleteMapping("/{orderId}")
-	public ResponseEntity<ApiResponse<?>> cancelOrders(
+	public ResponseEntity<ApiResponse<OrderDeleteResponse>> cancelOrders(
 			@RequestParam Long userId, // 임시
 			@PathVariable Long orderId
 	) {
+		OrderDeleteResponse response = orderService.cancelOrder(userId, orderId);
 		return ResponseEntity
 				       .status(HttpStatus.OK)
-				       .body(ApiResponse.success(null));
+				       .body(ApiResponse.success(response));
 	}
 }
