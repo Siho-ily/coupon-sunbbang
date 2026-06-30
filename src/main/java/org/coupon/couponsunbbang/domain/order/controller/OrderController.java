@@ -1,6 +1,10 @@
 package org.coupon.couponsunbbang.domain.order.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
+import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.service.OrderService;
 import org.coupon.couponsunbbang.global.common.ApiResponse;
 import org.springframework.http.HttpStatus;
@@ -13,56 +17,60 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 	private final OrderService orderService;
 
-		@GetMapping
-		public ResponseEntity<ApiResponse<?>> getOrders(
-				@RequestParam Long userId, // 임시
-				@RequestParam(defaultValue = "0") int page,
-				@RequestParam(defaultValue = "10") int size
-		) {
-			return ResponseEntity
-					       .status(HttpStatus.OK)
-					       .body(ApiResponse.success(null));
-		}
+	@GetMapping
+	public ResponseEntity<ApiResponse<?>> getOrders(
+			@RequestParam Long userId, // 임시
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size
+	) {
+		return ResponseEntity
+				       .status(HttpStatus.OK)
+				       .body(ApiResponse.success(null));
+	}
 
 
-		@GetMapping("/{orderId}")
-		public ResponseEntity<ApiResponse<?>> getOrderDetailById(
-				@RequestParam Long userId, // 임시
-				@PathVariable Long orderId
-		) {
-				return ResponseEntity
-						       .status(HttpStatus.OK)
-						       .body(ApiResponse.success(null));
-		}
+	@GetMapping("/{orderId}")
+	public ResponseEntity<ApiResponse<?>> getOrderDetailById(
+			@RequestParam Long userId, // 임시
+			@PathVariable Long orderId
+	) {
+		return ResponseEntity
+				       .status(HttpStatus.OK)
+				       .body(ApiResponse.success(null));
+	}
 
 
-		@PostMapping
-		public ResponseEntity<ApiResponse<?>> createOrder(
-				@RequestParam Long userId // 임시
-		) {
-				return ResponseEntity
-						       .status(HttpStatus.CREATED)
-						       .body(ApiResponse.success(null));
-		}
+	@PostMapping
+	public ResponseEntity<ApiResponse<OrderCreateResponse>> createOrder(
+			@RequestParam Long userId, // 임시
+			@RequestBody OrderCreateRequest request
+	) {
+		OrderCreateResponse response = orderService.createOrder(userId, request);
+		return ResponseEntity
+				       .status(HttpStatus.CREATED)
+				       .body(ApiResponse.success(response));
+	}
 
 
-		@PostMapping("/preview")
-		public ResponseEntity<ApiResponse<?>> previewOrders(
-				@RequestParam Long userId // 임시
-		) {
-				return ResponseEntity
-						       .status(HttpStatus.OK)
-						       .body(ApiResponse.success(null));
-		}
+	@PostMapping("/preview")
+	public ResponseEntity<ApiResponse<OrderPreviewResponse>> previewOrders(
+			@RequestParam Long userId, // 임시
+			@RequestBody OrderPreviewRequest request
+	) {
+		OrderPreviewResponse response = orderService.previewOrder(userId, request);
+		return ResponseEntity
+				       .status(HttpStatus.OK)
+				       .body(ApiResponse.success(response));
+	}
 
 
-		@DeleteMapping("/{orderId}")
-		public ResponseEntity<ApiResponse<?>> cancelOrders(
-				@RequestParam Long userId, // 임시
-				@PathVariable Long orderId
-		) {
-				return ResponseEntity
-						       .status(HttpStatus.OK)
-						       .body(ApiResponse.success(null));
-		}
+	@DeleteMapping("/{orderId}")
+	public ResponseEntity<ApiResponse<?>> cancelOrders(
+			@RequestParam Long userId, // 임시
+			@PathVariable Long orderId
+	) {
+		return ResponseEntity
+				       .status(HttpStatus.OK)
+				       .body(ApiResponse.success(null));
+	}
 }
