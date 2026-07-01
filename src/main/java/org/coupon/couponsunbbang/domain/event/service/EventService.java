@@ -17,7 +17,8 @@ public class EventService {
     private final EventRepository eventRepository;
 
     // 이벤트 등록 POST /api/v1/events
-
+    // Controller에서 위임 받아 Builder 패턴으로 Event 객체 생성
+    // new Event() 직접 호출 대신 Builder 사용 (protected 제한으로 외부 생성 불가)
     @Transactional
     public Event createEvent(String title, EventStatus status, LocalDateTime startAt, LocalDateTime endAt) {
         Event event = Event.builder()
