@@ -1,5 +1,6 @@
 package org.coupon.couponsunbbang.domain.user.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.coupon.couponsunbbang.domain.user.dto.SignupRequest;
 import org.coupon.couponsunbbang.domain.user.dto.SignupResponse;
@@ -20,7 +21,7 @@ public class UserController {
     @PostMapping("/signup")
     // 회원가입 API 메서드
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
-            @RequestBody SignupRequest request
+            @Valid @RequestBody SignupRequest request
     ) {
         SignupResponse response = userService.signup(request);
         return ResponseEntity.ok(ApiResponse.success(response));

@@ -18,7 +18,7 @@ public class UserService {
 
     // 회원가입 메서드
     public SignupResponse signup(SignupRequest request) {
-        if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
