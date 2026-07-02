@@ -7,7 +7,7 @@ public record OrderPreviewResponse(
 		Long couponIssueId,
 		Integer quantity,
 		BigDecimal originalPrice,
-		BigDecimal discountAmount,
+		BigDecimal discountPrice,
 		BigDecimal finalPrice
 ) {
 }

@@ -1,5 +1,6 @@
 package org.coupon.couponsunbbang.domain.order.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
@@ -48,7 +49,7 @@ public class OrderController {
 	@PostMapping
 	public ResponseEntity<ApiResponse<OrderCreateResponse>> createOrder(
 			@RequestParam Long userId, // 임시
-			@RequestBody OrderCreateRequest request
+			@Valid @RequestBody OrderCreateRequest request
 	) {
 		OrderCreateResponse response = orderService.createOrder(userId, request);
 		return ResponseEntity
@@ -60,7 +61,7 @@ public class OrderController {
 	@PostMapping("/preview")
 	public ResponseEntity<ApiResponse<OrderPreviewResponse>> previewOrders(
 			@RequestParam Long userId, // 임시
-			@RequestBody OrderPreviewRequest request
+			@Valid @RequestBody OrderPreviewRequest request
 	) {
 		OrderPreviewResponse response = orderService.previewOrder(userId, request);
 		return ResponseEntity
