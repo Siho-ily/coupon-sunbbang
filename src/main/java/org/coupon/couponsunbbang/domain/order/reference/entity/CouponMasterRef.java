@@ -35,7 +35,7 @@ public class CouponMasterRef {
 	@Column(name = "discount_type", nullable = false)
 	private String discountType;
 
-	@Column(name = "discount_value", nullable = false)
+	@Column(name = "discount_value", nullable = false, precision = 10, scale = 2)
 	private BigDecimal discountValue;
 
 	@Column(name = "total_quantity", nullable = false)

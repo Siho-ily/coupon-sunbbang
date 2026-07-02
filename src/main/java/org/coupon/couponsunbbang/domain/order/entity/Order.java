@@ -30,13 +30,13 @@ public class Order {
 	@Column(nullable = false)
 	private Integer quantity;
 
-	@Column(name = "original_price", nullable = false)
+	@Column(name = "original_price", nullable = false, precision = 10, scale = 2)
 	private BigDecimal originalPrice;
 
-	@Column(name = "discount_price", nullable = false)
+	@Column(name = "discount_price", nullable = false, precision = 10, scale = 2)
 	private BigDecimal discountPrice;
 
-	@Column(name = "final_price", nullable = false)
+	@Column(name = "final_price", nullable = false, precision = 10, scale = 2)
 	private BigDecimal finalPrice;
 
 	@CreationTimestamp
@@ -74,5 +74,4 @@ public class Order {
 		return order;
 	}
 }
-
 

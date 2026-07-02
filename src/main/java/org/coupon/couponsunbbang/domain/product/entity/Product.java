@@ -25,7 +25,7 @@ public class Product {
 	@Column(name = "title", nullable = false)
 	private String title;
 
-	@Column(name = "price", nullable = false)
+	@Column(name = "price", nullable = false, precision = 10, scale = 2)
 	private BigDecimal price;
 
 	@CreationTimestamp
