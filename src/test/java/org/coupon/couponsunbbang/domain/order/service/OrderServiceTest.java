@@ -3,6 +3,7 @@ package org.coupon.couponsunbbang.domain.order.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -10,7 +11,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
+import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.entity.Order;
 import org.coupon.couponsunbbang.domain.order.reference.entity.CouponIssueRef;
 import org.coupon.couponsunbbang.domain.order.reference.entity.CouponIssueRefStatus;
@@ -216,6 +219,114 @@ class OrderServiceTest {
 		);
 
 		assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PRODUCT_NOT_FOUND);
+	}
+
+	@Test
+	@DisplayName("쿠폰 없이 주문을 미리보기하면 상품 가격과 수량으로 예상 금액을 반환한다")
+	void previewOrderWithoutCoupon() {
+		// given
+		Long userId = 1L;
+		Long productId = 10L;
+		OrderPreviewRequest request = new OrderPreviewRequest(productId, null, 2);
+		Product product = createProduct(productId, "테스트 상품", "1000.00");
+
+		when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+		// when
+		OrderPreviewResponse response = orderService.previewOrder(userId, request);
+
+		// then
+		assertThat(response.productId()).isEqualTo(productId);
+		assertThat(response.couponIssueId()).isNull();
+		assertThat(response.quantity()).isEqualTo(2);
+		assertThat(response.originalPrice()).isEqualByComparingTo("2000.00");
+		assertThat(response.discountPrice()).isEqualByComparingTo("0.00");
+		assertThat(response.finalPrice()).isEqualByComparingTo("2000.00");
+		verify(orderRepository, never()).save(any(Order.class));
+	}
+
+	@Test
+	@DisplayName("정액 쿠폰으로 주문을 미리보기하면 할인 금액을 차감한 예상 금액을 반환하고 쿠폰은 사용 처리하지 않는다")
+	void previewOrderWithFixedCoupon() {
+		// given
+		Long userId = 1L;
+		Long productId = 10L;
+		Long couponIssueId = 20L;
+		Long couponMasterId = 30L;
+		OrderPreviewRequest request = new OrderPreviewRequest(productId, couponIssueId, 2);
+		Product product = createProduct(productId, "테스트 상품", "1000.00");
+		CouponIssueRef couponIssueRef = createCouponIssueRef(
+				couponIssueId,
+				userId,
+				couponMasterId,
+				CouponIssueRefStatus.UNUSED
+		);
+		CouponMasterRef couponMasterRef = createCouponMasterRef(
+				couponMasterId,
+				"FIXED",
+				"500.00",
+				LocalDateTime.of(2026, 7, 31, 23, 59)
+		);
+
+		when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+		when(couponIssueRefRepository.findByIdAndUserId(couponIssueId, userId)).thenReturn(Optional.of(couponIssueRef));
+		when(couponMasterRefRepository.findById(couponMasterId)).thenReturn(Optional.of(couponMasterRef));
+
+		// when
+		OrderPreviewResponse response = orderService.previewOrder(userId, request);
+
+		// then
+		assertThat(response.productId()).isEqualTo(productId);
+		assertThat(response.couponIssueId()).isEqualTo(couponIssueId);
+		assertThat(response.quantity()).isEqualTo(2);
+		assertThat(response.originalPrice()).isEqualByComparingTo("2000.00");
+		assertThat(response.discountPrice()).isEqualByComparingTo("500.00");
+		assertThat(response.finalPrice()).isEqualByComparingTo("1500.00");
+		assertThat(couponIssueRef.getStatus()).isEqualTo(CouponIssueRefStatus.UNUSED);
+		assertThat(couponIssueRef.getUsedAt()).isNull();
+		verify(orderRepository, never()).save(any(Order.class));
+	}
+
+	@Test
+	@DisplayName("정률 쿠폰으로 주문을 미리보기하면 할인율만큼 계산한 예상 금액을 반환하고 쿠폰은 사용 처리하지 않는다")
+	void previewOrderWithRateCoupon() {
+		// given
+		Long userId = 1L;
+		Long productId = 10L;
+		Long couponIssueId = 20L;
+		Long couponMasterId = 30L;
+		OrderPreviewRequest request = new OrderPreviewRequest(productId, couponIssueId, 3);
+		Product product = createProduct(productId, "테스트 상품", "1000.00");
+		CouponIssueRef couponIssueRef = createCouponIssueRef(
+				couponIssueId,
+				userId,
+				couponMasterId,
+				CouponIssueRefStatus.UNUSED
+		);
+		CouponMasterRef couponMasterRef = createCouponMasterRef(
+				couponMasterId,
+				"RATE",
+				"10.00",
+				LocalDateTime.of(2026, 7, 31, 23, 59)
+		);
+
+		when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+		when(couponIssueRefRepository.findByIdAndUserId(couponIssueId, userId)).thenReturn(Optional.of(couponIssueRef));
+		when(couponMasterRefRepository.findById(couponMasterId)).thenReturn(Optional.of(couponMasterRef));
+
+		// when
+		OrderPreviewResponse response = orderService.previewOrder(userId, request);
+
+		// then
+		assertThat(response.productId()).isEqualTo(productId);
+		assertThat(response.couponIssueId()).isEqualTo(couponIssueId);
+		assertThat(response.quantity()).isEqualTo(3);
+		assertThat(response.originalPrice()).isEqualByComparingTo("3000.00");
+		assertThat(response.discountPrice()).isEqualByComparingTo("300.00");
+		assertThat(response.finalPrice()).isEqualByComparingTo("2700.00");
+		assertThat(couponIssueRef.getStatus()).isEqualTo(CouponIssueRefStatus.UNUSED);
+		assertThat(couponIssueRef.getUsedAt()).isNull();
+		verify(orderRepository, never()).save(any(Order.class));
 	}
 
 	private Product createProduct(Long productId, String title, String price) {

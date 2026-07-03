@@ -48,6 +48,9 @@ public class OrderService {
 		BigDecimal originalPrice = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
 		BigDecimal discountPrice = calculateDiscountPrice(userId, request.couponIssueId(), originalPrice);
 		BigDecimal finalPrice = originalPrice.subtract(discountPrice);
+		if (request.couponIssueId() != null) {
+			couponIssueRefService.useCouponIssue(userId, request.couponIssueId());
+		}
 
 		// 주문 생성
 		Order order = Order.create(
@@ -65,7 +68,21 @@ public class OrderService {
 	}
 
 	public OrderPreviewResponse previewOrder(Long userId, OrderPreviewRequest request) {
-		throw new UnsupportedOperationException("주문 미리보기 로직 미구현");
+		Product product = productRepository.findById(request.productId())
+				.orElseThrow(ProductNotFoundException::new);
+
+		BigDecimal originalPrice = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
+		BigDecimal discountPrice = calculateDiscountPrice(userId, request.couponIssueId(), originalPrice);
+		BigDecimal finalPrice = originalPrice.subtract(discountPrice);
+
+		return new OrderPreviewResponse(
+				request.productId(),
+				request.couponIssueId(),
+				request.quantity(),
+				originalPrice,
+				discountPrice,
+				finalPrice
+		);
 	}
 
 	public OrderDeleteResponse cancelOrder(Long userId, Long orderId) {
@@ -80,9 +97,7 @@ public class OrderService {
 
 		CouponIssueRef couponIssueRef = couponIssueRefService.getUsableCouponIssue(userId, couponIssueId);
 		CouponMasterRef couponMasterRef = couponMasterRefService.getUsableCouponMaster(couponIssueRef.getCouponMasterId());
-		BigDecimal discountPrice = couponMasterRefService.calculateDiscountPrice(originalPrice, couponMasterRef);
-		couponIssueRefService.useCouponIssue(userId, couponIssueId);
-		return discountPrice;
+		return couponMasterRefService.calculateDiscountPrice(originalPrice, couponMasterRef);
 	}
 
 }
