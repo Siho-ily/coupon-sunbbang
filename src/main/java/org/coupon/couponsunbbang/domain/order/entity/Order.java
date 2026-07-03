@@ -1,7 +1,6 @@
 package org.coupon.couponsunbbang.domain.order.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -12,7 +11,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "`order`")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class Order {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -74,4 +73,3 @@ public class Order {
 		return order;
 	}
 }
-
