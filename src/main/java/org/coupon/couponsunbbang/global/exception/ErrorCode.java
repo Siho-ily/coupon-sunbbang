@@ -17,7 +17,11 @@ public enum ErrorCode {
     PRODUCT_NOT_FOUND("PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     DUPLICATE_RESOURCE("DUPLICATE_RESOURCE", "duplicate resource", HttpStatus.CONFLICT),
     VALIDATION_ERROR("VALIDATION_ERROR", "검증 에러", HttpStatus.BAD_REQUEST),
-    INVALID_PAGE("INVALID_PAGE", "페이지 검증 에러", HttpStatus.BAD_REQUEST);
+    INVALID_PAGE("INVALID_PAGE", "페이지 검증 에러", HttpStatus.BAD_REQUEST),
+
+    // 이벤트 에러
+    EVENT_NOT_FOUND("EVENT_NOT_FOUND", "존재하지 않는 이벤트입니다", HttpStatus.NOT_FOUND);
+
 
     private final String code;
     private final String message;
