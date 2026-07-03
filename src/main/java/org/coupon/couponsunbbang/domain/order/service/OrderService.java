@@ -7,6 +7,7 @@ import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderDeleteResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderDetailResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderListItemResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.entity.Order;
@@ -18,6 +19,8 @@ import org.coupon.couponsunbbang.domain.order.repository.OrderRepository;
 import org.coupon.couponsunbbang.domain.product.entity.Product;
 import org.coupon.couponsunbbang.domain.product.exception.ProductNotFoundException;
 import org.coupon.couponsunbbang.domain.product.repository.ProductRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,8 +33,23 @@ public class OrderService {
 	private final CouponIssueRefService couponIssueRefService;
 	private final CouponMasterRefService couponMasterRefService;
 
-	public OrderListResponse getOrders(Long userId, int page, int size) {
-		throw new UnsupportedOperationException("주문 목록 조회 로직 미구현");
+	public OrderListResponse getOrders(Long userId, Pageable pageable) {
+		Page<Order> orderPage = orderRepository.findByUserId(userId, pageable);
+
+		return new OrderListResponse(
+				orderPage.getContent()
+						.stream()
+						.map(order -> new OrderListItemResponse(
+								order.getId(),
+								order.getProductId(),
+								order.getQuantity(),
+								order.getFinalPrice(),
+								order.getCreatedAt()
+						))
+						.toList(),
+				orderPage.getNumber(),
+				orderPage.getSize()
+		);
 	}
 
 	public OrderDetailResponse getOrderDetail(Long userId, Long orderId) {

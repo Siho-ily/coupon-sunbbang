@@ -9,10 +9,12 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.entity.Order;
 import org.coupon.couponsunbbang.domain.order.reference.entity.CouponIssueRef;
@@ -35,6 +37,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,6 +71,60 @@ class OrderServiceTest {
 				couponIssueRefService,
 				couponMasterRefService
 		);
+	}
+
+	@Test
+	@DisplayName("주문 목록을 조회하면 본인 주문 목록을 페이지 정보와 함께 반환한다")
+	void getOrders() {
+		// given
+		Long userId = 1L;
+		int page = 0;
+		int size = 10;
+		PageRequest pageRequest = PageRequest.of(page, size);
+		Order firstOrder = createOrder(
+				100L,
+				userId,
+				10L,
+				null,
+				2,
+				"2000.00",
+				"0.00",
+				"2000.00",
+				LocalDateTime.of(2026, 7, 3, 10, 0)
+		);
+		Order secondOrder = createOrder(
+				101L,
+				userId,
+				11L,
+				20L,
+				1,
+				"1000.00",
+				"500.00",
+				"500.00",
+				LocalDateTime.of(2026, 7, 3, 11, 0)
+		);
+
+		when(orderRepository.findByUserId(userId, pageRequest)).thenReturn(
+				new PageImpl<>(List.of(firstOrder, secondOrder), pageRequest, 2)
+		);
+
+		// when
+		OrderListResponse response = orderService.getOrders(userId, pageRequest);
+
+		// then
+		assertThat(response.page()).isEqualTo(page);
+		assertThat(response.size()).isEqualTo(size);
+		assertThat(response.orders()).hasSize(2);
+		assertThat(response.orders().get(0).orderId()).isEqualTo(100L);
+		assertThat(response.orders().get(0).productId()).isEqualTo(10L);
+		assertThat(response.orders().get(0).quantity()).isEqualTo(2);
+		assertThat(response.orders().get(0).finalPrice()).isEqualByComparingTo("2000.00");
+		assertThat(response.orders().get(0).orderedAt()).isEqualTo(LocalDateTime.of(2026, 7, 3, 10, 0));
+		assertThat(response.orders().get(1).orderId()).isEqualTo(101L);
+		assertThat(response.orders().get(1).productId()).isEqualTo(11L);
+		assertThat(response.orders().get(1).quantity()).isEqualTo(1);
+		assertThat(response.orders().get(1).finalPrice()).isEqualByComparingTo("500.00");
+		assertThat(response.orders().get(1).orderedAt()).isEqualTo(LocalDateTime.of(2026, 7, 3, 11, 0));
 	}
 
 	@Test
@@ -336,6 +394,31 @@ class OrderServiceTest {
 		ReflectionTestUtils.setField(product, "price", new BigDecimal(price));
 		ReflectionTestUtils.setField(product, "createdAt", LocalDateTime.of(2026, 7, 2, 10, 0));
 		return product;
+	}
+
+	private Order createOrder(
+			Long orderId,
+			Long userId,
+			Long productId,
+			Long couponIssueId,
+			Integer quantity,
+			String originalPrice,
+			String discountPrice,
+			String finalPrice,
+			LocalDateTime createdAt
+	) {
+		Order order = Order.create(
+				userId,
+				productId,
+				couponIssueId,
+				quantity,
+				new BigDecimal(originalPrice),
+				new BigDecimal(discountPrice),
+				new BigDecimal(finalPrice)
+		);
+		ReflectionTestUtils.setField(order, "id", orderId);
+		ReflectionTestUtils.setField(order, "createdAt", createdAt);
+		return order;
 	}
 
 	private CouponIssueRef createCouponIssueRef(
