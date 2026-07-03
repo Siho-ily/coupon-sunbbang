@@ -14,6 +14,7 @@ import java.util.Optional;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderDetailResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.entity.Order;
@@ -28,6 +29,7 @@ import org.coupon.couponsunbbang.domain.order.repository.OrderRepository;
 import org.coupon.couponsunbbang.domain.product.entity.Product;
 import org.coupon.couponsunbbang.domain.product.exception.ProductNotFoundException;
 import org.coupon.couponsunbbang.domain.product.repository.ProductRepository;
+import org.coupon.couponsunbbang.global.exception.BusinessException;
 import org.coupon.couponsunbbang.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -125,6 +127,60 @@ class OrderServiceTest {
 		assertThat(response.orders().get(1).quantity()).isEqualTo(1);
 		assertThat(response.orders().get(1).finalPrice()).isEqualByComparingTo("500.00");
 		assertThat(response.orders().get(1).orderedAt()).isEqualTo(LocalDateTime.of(2026, 7, 3, 11, 0));
+	}
+
+	@Test
+	@DisplayName("주문 ID로 본인 주문 상세를 조회하면 주문 상세 응답을 반환한다")
+	void getOrderDetail() {
+		// given
+		Long userId = 1L;
+		Long orderId = 100L;
+		Long couponIssueId = 20L;
+		Order order = createOrder(
+				orderId,
+				userId,
+				10L,
+				couponIssueId,
+				2,
+				"2000.00",
+				"500.00",
+				"1500.00",
+				LocalDateTime.of(2026, 7, 3, 10, 0)
+		);
+
+		when(orderRepository.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+
+		// when
+		OrderDetailResponse response = orderService.getOrderDetail(userId, orderId);
+
+		// then
+		assertThat(response.orderId()).isEqualTo(orderId);
+		assertThat(response.userId()).isEqualTo(userId);
+		assertThat(response.productId()).isEqualTo(10L);
+		assertThat(response.couponIssueId()).isEqualTo(couponIssueId);
+		assertThat(response.quantity()).isEqualTo(2);
+		assertThat(response.originalPrice()).isEqualByComparingTo("2000.00");
+		assertThat(response.discountPrice()).isEqualByComparingTo("500.00");
+		assertThat(response.finalPrice()).isEqualByComparingTo("1500.00");
+		assertThat(response.orderedAt()).isEqualTo(LocalDateTime.of(2026, 7, 3, 10, 0));
+	}
+
+	@Test
+	@DisplayName("본인 주문이 아니거나 존재하지 않는 주문 ID로 상세 조회하면 주문 없음 예외가 발생한다")
+	void getOrderDetailWithNotFoundOrder() {
+		// given
+		Long userId = 1L;
+		Long orderId = 999L;
+
+		when(orderRepository.findByIdAndUserId(orderId, userId)).thenReturn(Optional.empty());
+
+		// when & then
+		BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> orderService.getOrderDetail(userId, orderId)
+		);
+
+		assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
 	}
 
 	@Test

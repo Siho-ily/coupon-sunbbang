@@ -19,6 +19,8 @@ import org.coupon.couponsunbbang.domain.order.repository.OrderRepository;
 import org.coupon.couponsunbbang.domain.product.entity.Product;
 import org.coupon.couponsunbbang.domain.product.exception.ProductNotFoundException;
 import org.coupon.couponsunbbang.domain.product.repository.ProductRepository;
+import org.coupon.couponsunbbang.global.exception.BusinessException;
+import org.coupon.couponsunbbang.global.exception.ErrorCode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -53,7 +55,20 @@ public class OrderService {
 	}
 
 	public OrderDetailResponse getOrderDetail(Long userId, Long orderId) {
-		throw new UnsupportedOperationException("주문 상세 조회 로직 미구현");
+		Order order = orderRepository.findByIdAndUserId(orderId, userId)
+				.orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "주문을 찾을 수 없습니다."));
+
+		return new OrderDetailResponse(
+				order.getId(),
+				order.getUserId(),
+				order.getProductId(),
+				order.getCouponIssueId(),
+				order.getQuantity(),
+				order.getOriginalPrice(),
+				order.getDiscountPrice(),
+				order.getFinalPrice(),
+				order.getCreatedAt()
+		);
 	}
 
 	@Transactional
