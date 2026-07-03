@@ -9,7 +9,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,7 +19,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @Entity
 @Table(name = "coupon_issue")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class CouponIssueRef {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,4 +44,14 @@ public class CouponIssueRef {
 
 	@Column(name = "deleted_at")
 	private LocalDateTime deletedAt;
+
+	public void use() {
+		this.status = CouponIssueRefStatus.USED;
+		this.usedAt = LocalDateTime.now();
+	}
+
+	public void restore() {
+		this.status = CouponIssueRefStatus.UNUSED;
+		this.usedAt = null;
+	}
 }

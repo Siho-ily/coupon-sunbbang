@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,7 +19,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 @Entity
 @Table(name = "coupon_master")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class CouponMasterRef {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
