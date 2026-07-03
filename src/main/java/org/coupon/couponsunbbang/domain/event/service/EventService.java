@@ -1,5 +1,6 @@
 package org.coupon.couponsunbbang.domain.event.service;
 
+import org.coupon.couponsunbbang.domain.event.exception.EventNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.coupon.couponsunbbang.domain.event.dto.EventResponse;
@@ -7,8 +8,6 @@ import org.coupon.couponsunbbang.domain.event.entity.Event;
 import org.coupon.couponsunbbang.domain.event.entity.EventStatus;
 import org.coupon.couponsunbbang.domain.event.repository.EventRepository;
 import org.coupon.couponsunbbang.domain.event.repository.EventQueryRepository;
-import org.coupon.couponsunbbang.global.exception.BusinessException;
-import org.coupon.couponsunbbang.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -56,14 +55,14 @@ public class EventService {
     // 이벤트 단건 조회 GET /api/v1/events/{eventId}
     public EventResponse getEvent(Long eventId) {
         return EventResponse.from(eventQueryRepository.findById(eventId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND)));
+                .orElseThrow(EventNotFoundException::new));
     }
 
     // 이벤트 수정 PUT /api/v1/events/{eventId}
     @Transactional
     public EventResponse updateEvent(Long eventId, String title, EventStatus status, LocalDateTime startAt, LocalDateTime endAt) {
         Event event = eventQueryRepository.findById(eventId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+                .orElseThrow(EventNotFoundException::new);
 
         event.update(title, status, startAt, endAt);
         return EventResponse.from(event);
@@ -73,7 +72,7 @@ public class EventService {
     @Transactional
     public void deleteEvent(Long eventId) {
         Event event = eventQueryRepository.findById(eventId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EVENT_NOT_FOUND));
+                .orElseThrow(EventNotFoundException::new);
 
         event.delete();
     }
