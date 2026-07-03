@@ -3,20 +3,28 @@ package org.coupon.couponsunbbang.domain.order.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
 import org.coupon.couponsunbbang.domain.order.entity.Order;
+import org.coupon.couponsunbbang.domain.order.reference.entity.CouponIssueRef;
+import org.coupon.couponsunbbang.domain.order.reference.entity.CouponIssueRefStatus;
+import org.coupon.couponsunbbang.domain.order.reference.entity.CouponMasterRef;
+import org.coupon.couponsunbbang.domain.order.reference.repository.CouponIssueRefRepository;
+import org.coupon.couponsunbbang.domain.order.reference.repository.CouponMasterRefRepository;
+import org.coupon.couponsunbbang.domain.order.reference.service.CouponIssueRefService;
+import org.coupon.couponsunbbang.domain.order.reference.service.CouponMasterRefService;
 import org.coupon.couponsunbbang.domain.order.repository.OrderRepository;
 import org.coupon.couponsunbbang.domain.product.entity.Product;
 import org.coupon.couponsunbbang.domain.product.exception.ProductNotFoundException;
 import org.coupon.couponsunbbang.domain.product.repository.ProductRepository;
 import org.coupon.couponsunbbang.global.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,8 +42,29 @@ class OrderServiceTest {
 	@Mock
 	private ProductRepository productRepository;
 
+	@Mock
+	private CouponIssueRefRepository couponIssueRefRepository;
+
+	@Mock
+	private CouponMasterRefRepository couponMasterRefRepository;
+
 	@InjectMocks
+	private CouponIssueRefService couponIssueRefService;
+
+	@InjectMocks
+	private CouponMasterRefService couponMasterRefService;
+
 	private OrderService orderService;
+
+	@BeforeEach
+	void setUp() {
+		orderService = new OrderService(
+				orderRepository,
+				productRepository,
+				couponIssueRefService,
+				couponMasterRefService
+		);
+	}
 
 	@Test
 	@DisplayName("쿠폰 없이 주문을 생성하면 상품 가격과 수량으로 최종 금액을 계산해 저장한다")
@@ -44,9 +73,8 @@ class OrderServiceTest {
 		Long userId = 1L;
 		Long productId = 10L;
 		OrderCreateRequest request = new OrderCreateRequest(productId, null, 2);
-		Product product = mock(Product.class);
+		Product product = createProduct(productId, "테스트 상품", "1000.00");
 
-		when(product.getPrice()).thenReturn(new BigDecimal("1000.00"));
 		when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 		when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
 			// mock save에 전달된 Order를 그대로 반환해 JPA 저장 동작을 대신합니다.
@@ -75,6 +103,103 @@ class OrderServiceTest {
 	}
 
 	@Test
+	@DisplayName("정액 쿠폰으로 주문을 생성하면 할인 금액을 차감해 저장하고 쿠폰을 사용 처리한다")
+	void createOrderWithFixedCoupon() {
+		// given
+		Long userId = 1L;
+		Long productId = 10L;
+		Long couponIssueId = 20L;
+		Long couponMasterId = 30L;
+		OrderCreateRequest request = new OrderCreateRequest(productId, couponIssueId, 2);
+		Product product = createProduct(productId, "테스트 상품", "1000.00");
+		CouponIssueRef couponIssueRef = createCouponIssueRef(
+				couponIssueId,
+				userId,
+				couponMasterId,
+				CouponIssueRefStatus.UNUSED
+		);
+		CouponMasterRef couponMasterRef = createCouponMasterRef(
+				couponMasterId,
+				"FIXED",
+				"500.00",
+				LocalDateTime.of(2026, 7, 31, 23, 59)
+		);
+
+		when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+		when(couponIssueRefRepository.findByIdAndUserId(couponIssueId, userId)).thenReturn(Optional.of(couponIssueRef));
+		when(couponMasterRefRepository.findById(couponMasterId)).thenReturn(Optional.of(couponMasterRef));
+		when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+			Order order = invocation.getArgument(0);
+			ReflectionTestUtils.setField(order, "id", 100L);
+			return order;
+		});
+
+		// when
+		OrderCreateResponse response = orderService.createOrder(userId, request);
+
+		// then
+		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+		assertThat(response.orderId()).isEqualTo(100L);
+		verify(orderRepository).save(orderCaptor.capture());
+
+		Order savedOrder = orderCaptor.getValue();
+		assertThat(savedOrder.getCouponIssueId()).isEqualTo(couponIssueId);
+		assertThat(savedOrder.getOriginalPrice()).isEqualByComparingTo("2000.00");
+		assertThat(savedOrder.getDiscountPrice()).isEqualByComparingTo("500.00");
+		assertThat(savedOrder.getFinalPrice()).isEqualByComparingTo("1500.00");
+		assertThat(couponIssueRef.getStatus()).isEqualTo(CouponIssueRefStatus.USED);
+		assertThat(couponIssueRef.getUsedAt()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("정률 쿠폰으로 주문을 생성하면 할인율만큼 할인 금액을 계산해 저장한다")
+	void createOrderWithRateCoupon() {
+		// given
+		Long userId = 1L;
+		Long productId = 10L;
+		Long couponIssueId = 20L;
+		Long couponMasterId = 30L;
+		OrderCreateRequest request = new OrderCreateRequest(productId, couponIssueId, 3);
+		Product product = createProduct(productId, "테스트 상품", "1000.00");
+		CouponIssueRef couponIssueRef = createCouponIssueRef(
+				couponIssueId,
+				userId,
+				couponMasterId,
+				CouponIssueRefStatus.UNUSED
+		);
+		CouponMasterRef couponMasterRef = createCouponMasterRef(
+				couponMasterId,
+				"RATE",
+				"10.00",
+				LocalDateTime.of(2026, 7, 31, 23, 59)
+		);
+
+		when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+		when(couponIssueRefRepository.findByIdAndUserId(couponIssueId, userId)).thenReturn(Optional.of(couponIssueRef));
+		when(couponMasterRefRepository.findById(couponMasterId)).thenReturn(Optional.of(couponMasterRef));
+		when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+			Order order = invocation.getArgument(0);
+			ReflectionTestUtils.setField(order, "id", 100L);
+			return order;
+		});
+
+		// when
+		OrderCreateResponse response = orderService.createOrder(userId, request);
+
+		// then
+		ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
+		assertThat(response.orderId()).isEqualTo(100L);
+		verify(orderRepository).save(orderCaptor.capture());
+
+		Order savedOrder = orderCaptor.getValue();
+		assertThat(savedOrder.getOriginalPrice()).isEqualByComparingTo("3000.00");
+		assertThat(savedOrder.getDiscountPrice()).isEqualByComparingTo("300.00");
+		assertThat(savedOrder.getFinalPrice()).isEqualByComparingTo("2700.00");
+		assertThat(couponIssueRef.getStatus()).isEqualTo(CouponIssueRefStatus.USED);
+		assertThat(couponIssueRef.getUsedAt()).isNotNull();
+	}
+
+	@Test
 	@DisplayName("존재하지 않는 상품 ID로 주문을 생성하면 상품 없음 예외가 발생한다")
 	void createOrderWithNotFoundProduct() {
 		// given
@@ -91,5 +216,47 @@ class OrderServiceTest {
 		);
 
 		assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PRODUCT_NOT_FOUND);
+	}
+
+	private Product createProduct(Long productId, String title, String price) {
+		Product product = new Product();
+		ReflectionTestUtils.setField(product, "id", productId);
+		ReflectionTestUtils.setField(product, "title", title);
+		ReflectionTestUtils.setField(product, "price", new BigDecimal(price));
+		ReflectionTestUtils.setField(product, "createdAt", LocalDateTime.of(2026, 7, 2, 10, 0));
+		return product;
+	}
+
+	private CouponIssueRef createCouponIssueRef(
+			Long couponIssueId,
+			Long userId,
+			Long couponMasterId,
+			CouponIssueRefStatus status
+	) {
+		CouponIssueRef couponIssueRef = new CouponIssueRef();
+		ReflectionTestUtils.setField(couponIssueRef, "id", couponIssueId);
+		ReflectionTestUtils.setField(couponIssueRef, "userId", userId);
+		ReflectionTestUtils.setField(couponIssueRef, "couponMasterId", couponMasterId);
+		ReflectionTestUtils.setField(couponIssueRef, "status", status);
+		ReflectionTestUtils.setField(couponIssueRef, "createdAt", LocalDateTime.of(2026, 7, 2, 10, 0));
+		return couponIssueRef;
+	}
+
+	private CouponMasterRef createCouponMasterRef(
+			Long couponMasterId,
+			String discountType,
+			String discountValue,
+			LocalDateTime useExpiredAt
+	) {
+		CouponMasterRef couponMasterRef = new CouponMasterRef();
+		ReflectionTestUtils.setField(couponMasterRef, "id", couponMasterId);
+		ReflectionTestUtils.setField(couponMasterRef, "eventId", 1L);
+		ReflectionTestUtils.setField(couponMasterRef, "title", "테스트 쿠폰");
+		ReflectionTestUtils.setField(couponMasterRef, "discountType", discountType);
+		ReflectionTestUtils.setField(couponMasterRef, "discountValue", new BigDecimal(discountValue));
+		ReflectionTestUtils.setField(couponMasterRef, "totalQuantity", 100);
+		ReflectionTestUtils.setField(couponMasterRef, "issueExpiredAt", LocalDateTime.of(2026, 7, 31, 23, 59));
+		ReflectionTestUtils.setField(couponMasterRef, "useExpiredAt", useExpiredAt);
+		return couponMasterRef;
 	}
 }
