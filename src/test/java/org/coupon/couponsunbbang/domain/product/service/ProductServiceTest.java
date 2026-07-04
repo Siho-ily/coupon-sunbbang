@@ -47,7 +47,7 @@ class ProductServiceTest {
 		);
 
 		// when
-		ProductListResponse response = productService.getProducts(page, size);
+		ProductListResponse response = productService.getProducts(pageRequest);
 
 		// then
 		assertThat(response.products()).hasSize(2);

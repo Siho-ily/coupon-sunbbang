@@ -8,7 +8,7 @@ import org.coupon.couponsunbbang.domain.product.entity.Product;
 import org.coupon.couponsunbbang.domain.product.exception.ProductNotFoundException;
 import org.coupon.couponsunbbang.domain.product.repository.ProductRepository;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 	private final ProductRepository productRepository;
 
-	public ProductListResponse getProducts(int page, int size) {
-		Page<Product> productPage = productRepository.findAll(PageRequest.of(page, size));
+	public ProductListResponse getProducts(Pageable pageable) {
+		Page<Product> productPage = productRepository.findAll(pageable);
 		// Page<Product>에서 Product 리스트만 꺼내 List<ProductResponse>로 변환
 		List<ProductResponse> products = productPage.getContent()
 				.stream()
