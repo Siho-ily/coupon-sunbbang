@@ -1,6 +1,15 @@
 package org.coupon.couponsunbbang.domain.user.entity;
 
-import jakarta.persistence.*;
+import org.coupon.couponsunbbang.global.entity.BaseEntity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,8 +20,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "user")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-
-public class User {
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // 회원 고유번호
@@ -32,12 +40,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private UserRole role; // 회원 권한
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt; // 회원 생성 시간
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt; // 회원 정보 수정 시간
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt; // 회원탈퇴 시간
@@ -61,20 +63,5 @@ public class User {
     public void delete() {
         this.deletedAt = LocalDateTime.now();
         // DB row를 삭제하지 않고, 현재 시간을 넣음
-    }
-
-    // DB 저장 직전에 생성 시간과 수정 시간을 현재 시간으로 넣는 메서드
-    @PrePersist
-    public void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    // DB row가 수정되기 직전에 수정 시간을 현재 시간으로 넣는 메서드
-    @PreUpdate
-    public void preUpdate() {
-        LocalDateTime now = LocalDateTime.now();
-        this.updatedAt = now;
     }
 }
