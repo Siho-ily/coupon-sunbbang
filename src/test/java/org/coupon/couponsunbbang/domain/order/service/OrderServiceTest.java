@@ -14,6 +14,7 @@ import java.util.Optional;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderCreateRequest;
 import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderDeleteResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderDetailResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
@@ -181,6 +182,92 @@ class OrderServiceTest {
 		);
 
 		assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+	}
+
+	@Test
+	@DisplayName("쿠폰 없이 주문을 취소하면 주문을 삭제하고 주문 ID를 반환한다")
+	void cancelOrderWithoutCoupon() {
+		// given
+		Long userId = 1L;
+		Long orderId = 100L;
+		Order order = createOrder(
+				orderId,
+				userId,
+				10L,
+				null,
+				2,
+				"2000.00",
+				"0.00",
+				"2000.00",
+				LocalDateTime.of(2026, 7, 3, 10, 0)
+		);
+
+		when(orderRepository.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+
+		// when
+		OrderDeleteResponse response = orderService.cancelOrder(userId, orderId);
+
+		// then
+		assertThat(response.orderId()).isEqualTo(orderId);
+		verify(orderRepository).delete(order);
+	}
+
+	@Test
+	@DisplayName("쿠폰이 적용된 주문을 취소하면 쿠폰을 복구하고 주문을 삭제한다")
+	void cancelOrderWithCoupon() {
+		// given
+		Long userId = 1L;
+		Long orderId = 100L;
+		Long couponIssueId = 20L;
+		Long couponMasterId = 30L;
+		Order order = createOrder(
+				orderId,
+				userId,
+				10L,
+				couponIssueId,
+				2,
+				"2000.00",
+				"500.00",
+				"1500.00",
+				LocalDateTime.of(2026, 7, 3, 10, 0)
+		);
+		CouponIssueRef couponIssueRef = createCouponIssueRef(
+				couponIssueId,
+				userId,
+				couponMasterId,
+				CouponIssueRefStatus.USED
+		);
+
+		when(orderRepository.findByIdAndUserId(orderId, userId)).thenReturn(Optional.of(order));
+		when(couponIssueRefRepository.findByIdAndUserId(couponIssueId, userId)).thenReturn(Optional.of(couponIssueRef));
+
+		// when
+		OrderDeleteResponse response = orderService.cancelOrder(userId, orderId);
+
+		// then
+		assertThat(response.orderId()).isEqualTo(orderId);
+		assertThat(couponIssueRef.getStatus()).isEqualTo(CouponIssueRefStatus.UNUSED);
+		assertThat(couponIssueRef.getUsedAt()).isNull();
+		verify(orderRepository).delete(order);
+	}
+
+	@Test
+	@DisplayName("본인 주문이 아니거나 존재하지 않는 주문 ID로 취소하면 주문 없음 예외가 발생한다")
+	void cancelOrderWithNotFoundOrder() {
+		// given
+		Long userId = 1L;
+		Long orderId = 999L;
+
+		when(orderRepository.findByIdAndUserId(orderId, userId)).thenReturn(Optional.empty());
+
+		// when & then
+		BusinessException exception = assertThrows(
+				BusinessException.class,
+				() -> orderService.cancelOrder(userId, orderId)
+		);
+
+		assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+		verify(orderRepository, never()).delete(any(Order.class));
 	}
 
 	@Test

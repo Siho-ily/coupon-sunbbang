@@ -55,8 +55,7 @@ public class OrderService {
 	}
 
 	public OrderDetailResponse getOrderDetail(Long userId, Long orderId) {
-		Order order = orderRepository.findByIdAndUserId(orderId, userId)
-				.orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "주문을 찾을 수 없습니다."));
+		Order order = getOrder(userId, orderId);
 
 		return new OrderDetailResponse(
 				order.getId(),
@@ -118,11 +117,24 @@ public class OrderService {
 		);
 	}
 
+	@Transactional
 	public OrderDeleteResponse cancelOrder(Long userId, Long orderId) {
-		throw new UnsupportedOperationException("주문 삭제 로직 미구현");
+		Order order = getOrder(userId, orderId);
+
+		if (order.getCouponIssueId() != null) {
+			couponIssueRefService.restoreCouponIssue(userId, order.getCouponIssueId());
+		}
+
+		orderRepository.delete(order);
+		return new OrderDeleteResponse(orderId);
 	}
 
 	// ===== * private methods * =====
+	private Order getOrder(Long userId, Long orderId) {
+		return orderRepository.findByIdAndUserId(orderId, userId)
+				       .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "주문을 찾을 수 없습니다."));
+	}
+
 	private BigDecimal calculateDiscountPrice(Long userId, Long couponIssueId, BigDecimal originalPrice) {
 		if (couponIssueId == null) {
 			return BigDecimal.ZERO;
