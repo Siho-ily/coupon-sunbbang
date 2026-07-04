@@ -7,13 +7,22 @@ import org.coupon.couponsunbbang.domain.order.dto.request.OrderPreviewRequest;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderCreateResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderDeleteResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderDetailResponse;
+import org.coupon.couponsunbbang.domain.order.dto.response.OrderListItemResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.entity.Order;
+import org.coupon.couponsunbbang.domain.order.reference.entity.CouponIssueRef;
+import org.coupon.couponsunbbang.domain.order.reference.entity.CouponMasterRef;
+import org.coupon.couponsunbbang.domain.order.reference.service.CouponIssueRefService;
+import org.coupon.couponsunbbang.domain.order.reference.service.CouponMasterRefService;
 import org.coupon.couponsunbbang.domain.order.repository.OrderRepository;
 import org.coupon.couponsunbbang.domain.product.entity.Product;
 import org.coupon.couponsunbbang.domain.product.exception.ProductNotFoundException;
 import org.coupon.couponsunbbang.domain.product.repository.ProductRepository;
+import org.coupon.couponsunbbang.global.exception.BusinessException;
+import org.coupon.couponsunbbang.global.exception.ErrorCode;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,29 +32,57 @@ import org.springframework.transaction.annotation.Transactional;
 public class OrderService {
 	private final OrderRepository orderRepository;
 	private final ProductRepository productRepository;
+	private final CouponIssueRefService couponIssueRefService;
+	private final CouponMasterRefService couponMasterRefService;
 
-	public OrderListResponse getOrders(Long userId, int page, int size) {
-		throw new UnsupportedOperationException("주문 목록 조회 로직 미구현");
+	public OrderListResponse getOrders(Long userId, Pageable pageable) {
+		Page<Order> orderPage = orderRepository.findByUserId(userId, pageable);
+
+		return new OrderListResponse(
+				orderPage.getContent()
+						.stream()
+						.map(order -> new OrderListItemResponse(
+								order.getId(),
+								order.getProductId(),
+								order.getQuantity(),
+								order.getFinalPrice(),
+								order.getCreatedAt()
+						))
+						.toList(),
+				orderPage.getNumber(),
+				orderPage.getSize()
+		);
 	}
 
 	public OrderDetailResponse getOrderDetail(Long userId, Long orderId) {
-		throw new UnsupportedOperationException("주문 상세 조회 로직 미구현");
+		Order order = getOrder(userId, orderId);
+
+		return new OrderDetailResponse(
+				order.getId(),
+				order.getUserId(),
+				order.getProductId(),
+				order.getCouponIssueId(),
+				order.getQuantity(),
+				order.getOriginalPrice(),
+				order.getDiscountPrice(),
+				order.getFinalPrice(),
+				order.getCreatedAt()
+		);
 	}
 
 	@Transactional
 	public OrderCreateResponse createOrder(Long userId, OrderCreateRequest request) {
-		if (request.couponIssueId() != null) {
-			throw new UnsupportedOperationException("쿠폰 적용 주문 생성 로직 미구현");
-		}
-
 		// 상품 조회
 		Product product = productRepository.findById(request.productId())
 				.orElseThrow(ProductNotFoundException::new);
 
 		// 금액 계산
 		BigDecimal originalPrice = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
-		BigDecimal discountPrice = BigDecimal.ZERO; // 현재 쿠폰 미적용 상태이므로, 할인 금액은 무조건 0원 입니다.
+		BigDecimal discountPrice = calculateDiscountPrice(userId, request.couponIssueId(), originalPrice);
 		BigDecimal finalPrice = originalPrice.subtract(discountPrice);
+		if (request.couponIssueId() != null) {
+			couponIssueRefService.useCouponIssue(userId, request.couponIssueId());
+		}
 
 		// 주문 생성
 		Order order = Order.create(
@@ -63,10 +100,49 @@ public class OrderService {
 	}
 
 	public OrderPreviewResponse previewOrder(Long userId, OrderPreviewRequest request) {
-		throw new UnsupportedOperationException("주문 미리보기 로직 미구현");
+		Product product = productRepository.findById(request.productId())
+				.orElseThrow(ProductNotFoundException::new);
+
+		BigDecimal originalPrice = product.getPrice().multiply(BigDecimal.valueOf(request.quantity()));
+		BigDecimal discountPrice = calculateDiscountPrice(userId, request.couponIssueId(), originalPrice);
+		BigDecimal finalPrice = originalPrice.subtract(discountPrice);
+
+		return new OrderPreviewResponse(
+				request.productId(),
+				request.couponIssueId(),
+				request.quantity(),
+				originalPrice,
+				discountPrice,
+				finalPrice
+		);
 	}
 
+	@Transactional
 	public OrderDeleteResponse cancelOrder(Long userId, Long orderId) {
-		throw new UnsupportedOperationException("주문 삭제 로직 미구현");
+		Order order = getOrder(userId, orderId);
+
+		if (order.getCouponIssueId() != null) {
+			couponIssueRefService.restoreCouponIssue(userId, order.getCouponIssueId());
+		}
+
+		orderRepository.delete(order);
+		return new OrderDeleteResponse(orderId);
 	}
+
+	// ===== * private methods * =====
+	private Order getOrder(Long userId, Long orderId) {
+		return orderRepository.findByIdAndUserId(orderId, userId)
+				       .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "주문을 찾을 수 없습니다."));
+	}
+
+	private BigDecimal calculateDiscountPrice(Long userId, Long couponIssueId, BigDecimal originalPrice) {
+		if (couponIssueId == null) {
+			return BigDecimal.ZERO;
+		}
+
+		CouponIssueRef couponIssueRef = couponIssueRefService.getUsableCouponIssue(userId, couponIssueId);
+		CouponMasterRef couponMasterRef = couponMasterRefService.getUsableCouponMaster(couponIssueRef.getCouponMasterId());
+		return couponMasterRefService.calculateDiscountPrice(originalPrice, couponMasterRef);
+	}
+
 }

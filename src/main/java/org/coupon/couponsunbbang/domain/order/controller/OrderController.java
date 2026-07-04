@@ -11,6 +11,8 @@ import org.coupon.couponsunbbang.domain.order.dto.response.OrderListResponse;
 import org.coupon.couponsunbbang.domain.order.dto.response.OrderPreviewResponse;
 import org.coupon.couponsunbbang.domain.order.service.OrderService;
 import org.coupon.couponsunbbang.global.common.ApiResponse;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,10 +26,9 @@ public class OrderController {
 	@GetMapping
 	public ResponseEntity<ApiResponse<OrderListResponse>> getOrders(
 			@RequestParam Long userId, // 임시
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size
+			@PageableDefault(page = 0, size = 10) Pageable pageable
 	) {
-		OrderListResponse response = orderService.getOrders(userId, page, size);
+		OrderListResponse response = orderService.getOrders(userId, pageable);
 		return ResponseEntity
 				       .status(HttpStatus.OK)
 				       .body(ApiResponse.success(response));
